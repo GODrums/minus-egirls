@@ -5,9 +5,9 @@ import { svelte, vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
   srcDir: 'src',
   manifest: {
-    name: 'MinusEgirls',
-    description: 'My extension description',
-    version: '1.0.0',
+    name: 'Minus-Egirls',
+    description: 'A browser extension that removes egirls from your Twitter feed.',
+    version: '0.0.9',
     host_permissions: ["*://*.twitter.com/*"],
     "permissions": ["storage"],
     web_accessible_resources: [{

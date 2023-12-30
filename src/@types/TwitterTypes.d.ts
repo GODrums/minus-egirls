@@ -31,8 +31,12 @@ export type TweetLegacy = {
     full_text: string;
     retweeted: boolean;
     favorited: boolean;
+    favorite_count: number;
     entities: {
         urls: TweetEntityURL[];
+    };
+    extended_entities: {
+        media: TweetEntityURL[];
     };
 }
 

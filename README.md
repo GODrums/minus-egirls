@@ -1,8 +1,7 @@
-<p align="center"><img width="128" height="128" src="./src/public/icon/128.png"></p>
+<p align="center"><img width="128" height="128" src="./src/public/icon/512.png"></p>
 <h1 align="center">Minus Egirls</h1>
 
-Inspired by [egirl-blocker](https://github.com/theerfan/egirl-blocker).
-This template should help get you started developing with Svelte in WXT.
+A browser extension that removes egirls from your Twitter feed. With multiple filter strength levels, you can choose how much you want to filter out. The idea was inspired by [egirl-blocker](https://github.com/theerfan/egirl-blocker).
 
 ## Tech Stack
 

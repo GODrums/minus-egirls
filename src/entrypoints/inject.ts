@@ -11,7 +11,7 @@ function openIntercept() {
     window.XMLHttpRequest.prototype.open = function (method, url) {
         this.addEventListener('load', (e) => {
             const target = <XMLHttpRequest>e.currentTarget;
-            const validURLs = ['HomeTimeline', 'UserTweets', 'TweetDetail', 'TweetResultByRestId'];
+            const validURLs = ['HomeTimeline', 'UserTweets', 'TweetDetail', 'TweetResultByRestId', 'Bookmarks'];
 
             if (!target.responseURL.includes(location.hostname) ||!validURLs.some(url => target.responseURL.includes(url))) {
                 return;

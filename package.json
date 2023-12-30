@@ -1,8 +1,7 @@
 {
-  "name": "wxt-starter",
-  "description": "manifest.json description",
-  "private": true,
-  "version": "0.0.0",
+  "name": "minusegirls",
+  "description": "A browser extension that removes egirls from your Twitter feed.",
+  "version": "0.0.9",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",

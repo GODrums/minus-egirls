@@ -1,15 +1,19 @@
 import type { Tweet } from '@/@types/TwitterTypes';
 import { filterTweets } from '@/util/checks';
 import { getTweetsToHide, hideTweet, removeTweet } from '@/util/filter';
+import { ExtensionStorage } from '@/util/storage';
 
 export default defineContentScript({
     matches: ['*://*.twitter.com/*'],
     runAt: 'document_start',
     main(ctx) {
         console.log('Hello content script!', { id: browser.runtime.id });
-        injectXHRListener();
-        document.addEventListener('RUMS_INTERCEPTED_REQUEST', eventHandler);
-        addMutationObserver();
+        setTimeout(async () => {
+            if (!(await ExtensionStorage.enabled.getValue())) return;
+            injectXHRListener();
+            document.addEventListener('RUMS_INTERCEPTED_REQUEST', eventHandler);
+            addMutationObserver();
+        }, 10);
     },
 });
 
@@ -21,6 +25,7 @@ export interface EventData<T> {
 
 function addMutationObserver() {
     const observer = new MutationObserver(async (mutations) => {
+        let newTweetElements: HTMLElement[] = [];
         for (const mutation of mutations) {
             for (let i = 0; i < mutation.addedNodes.length; i++) {
                 const addedNode = mutation.addedNodes[i];
@@ -31,32 +36,66 @@ function addMutationObserver() {
                     if (addedNode.querySelector('article[data-testid="tweet"]')) {
                         const tweet = addedNode.querySelector('article[data-testid="tweet"]');
                         if (tweet?.getAttribute('data-testid') === 'tweet') {
-                            handleTweetElement(tweet as HTMLElement);
+                            // handleTweetElement(tweet as HTMLElement);
+                            newTweetElements.push(tweet as HTMLElement);
                         }
                     }
                 }
                 // console.debug('[MINUS-EGIRLS] Mutation detected:', addedNode);
             }
         }
+        if (newTweetElements.length === 0) return;
+        console.debug('[MINUS-EGIRLS] Mutation detected:', newTweetElements.length);
+        if (getTweetsToHide().length === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        for (const tweetElement of newTweetElements) {
+            await handleTweetElement(tweetElement);
+        }
     });
     observer.observe(document, { childList: true, subtree: true });
 }
 
-function handleTweetElement(tweetElement: HTMLElement) {
+const convertFavCount = (tweetElement: HTMLElement) => {
+    const elementValue = tweetElement.querySelectorAll('span[data-testid="app-text-transition-container"]')[2]?.textContent ?? '0';
+    if (Number.isNaN(parseInt(elementValue.charAt(elementValue.length - 1)))) {
+        const multiplier = elementValue.substr(-1).toLowerCase();
+        if (multiplier == 'k') return parseFloat(elementValue) * 1000;
+        else if (multiplier == 'm') return parseFloat(elementValue) * 1000000;
+        return 0;
+    } else {
+        return parseInt(elementValue);
+    }
+};
+
+async function handleTweetElement(tweetElement: HTMLElement) {
     const tweetUsername = Array.from(tweetElement.querySelectorAll('a[role="link"]'))?.[2]?.textContent; // with @ in front
     const tweetText = tweetElement.querySelector('div[data-testid="tweetText"]')?.textContent;
-    console.log('[MINUS-EGIRLS] Checking Tweet: ', tweetUsername, tweetText);
+    const tweetFavoriteCount = convertFavCount(tweetElement);
+    // console.log('[MINUS-EGIRLS] Checking Tweet: ', tweetUsername, tweetText, tweetFavoriteCount);
 
-    if (!tweetUsername || !tweetText) return;
+    if (!tweetUsername) return;
 
-    const tweetsToFilter = getTweetsToHide();
-    const foundTweet = tweetsToFilter.find(tweet => {
+    let tweetsToFilter = getTweetsToHide();
+    while (tweetsToFilter.length === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        tweetsToFilter = getTweetsToHide();
+    }
+    const foundTweet = tweetsToFilter.find((tweet) => {
         const username = tweet.core.user_results.result.legacy.screen_name;
         const text = tweet.legacy.full_text; // contains more than just the tweet text, e.g. reply-mention and tweet url
-        
-        return tweetUsername === `@${username}` && text?.indexOf(tweetText) > -1;
+
+        if (tweetUsername === `@${username}`) {
+            console.log('[MINUS-EGIRLS] Found Tweet: ', tweet);
+            if (tweetText && text?.indexOf(tweetText) > -1) return true;
+
+            const favoriteCount = tweet.legacy.favorite_count;
+            const favRelative = favoriteCount / tweetFavoriteCount;
+            return tweetUsername === `@${username}` && favRelative > 0.9 && favRelative < 1.1;
+        }
+        return false;
     });
-    
+
     if (foundTweet) {
         removeTweet(foundTweet);
         hideTweet(tweetElement);
@@ -69,19 +108,17 @@ async function eventHandler(e: Event) {
     const graphql_data = eventData?.data?.data;
     if (eventData.url.includes('TweetResultByRestId')) {
         // if not logged in?
-        console.log('[MINUS-EGIRLS] TweetResultByRestId', graphql_data);
         const profile_url = graphql_data.tweetResult?.result?.core?.user_results?.result?.legacy?.entities?.url?.urls?.[0].expanded_url;
         const profile_desc = graphql_data?.tweetResult?.result?.core?.user_results?.result?.legacy?.description;
         const tweet_text = graphql_data?.tweetResult?.result?.legacy?.full_text;
 
-        console.log('[MINUS-EGIRLS] TweetResultByRestId', {
+        console.debug('[MINUS-EGIRLS] TweetResultByRestId', {
             profile_url,
             profile_desc,
             tweet_text,
         });
     } else if (eventData.url.includes('TweetDetail')) {
         // standard single tweet response
-        console.log('[MINUS-EGIRLS] TweetDetail', graphql_data);
         const tweet = graphql_data?.threaded_conversation_with_injections_v2?.instructions?.[0]?.entries
             ?.filter((entry: any) => String(entry?.entryId).startsWith('tweet'))
             .map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
@@ -89,20 +126,29 @@ async function eventHandler(e: Event) {
             ?.filter((entry: any) => String(entry?.entryId).startsWith('conversationthread'))
             .map((entry: any) => entry?.content?.items?.[0].item?.itemContent?.tweet_results?.result) as Tweet[];
 
-        console.log('[MINUS-EGIRLS] TweetDetail Tweets: ', tweet, conversations);
+        console.debug('[MINUS-EGIRLS] TweetDetail Tweets: ', tweet, conversations);
         if (conversations && conversations.length > 0) {
             filterTweets(conversations);
         }
     } else if (eventData.url.includes('UserTweets')) {
-        console.log('[MINUS-EGIRLS] UserTweets', graphql_data);
+        // console.log('[MINUS-EGIRLS] UserTweets', graphql_data);
+        const tweets = graphql_data?.user.result.timeline_v2.timeline.instructions[2].entries?.filter((entry: any) => String(entry?.entryId).startsWith('tweet'))?.map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
+
+        console.debug('[MINUS-EGIRLS] UserTweets Tweets: ', tweets);
+        filterTweets(tweets);
     } else if (eventData.url.includes('HomeTimeline')) {
-        console.log('[MINUS-EGIRLS] HomeTimeline', graphql_data);
         // promoted-tweet- vs. tweet-
         const tweets = graphql_data?.home?.home_timeline_urt?.instructions?.[0]?.entries
             ?.filter((entry: any) => String(entry?.entryId).includes('tweet'))
             .map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
 
-        console.log('[MINUS-EGIRLS] HomeTimeline Tweets: ', tweets);
+        console.debug('[MINUS-EGIRLS] HomeTimeline Tweets: ', tweets);
+        filterTweets(tweets);
+    } else if (eventData.url.includes('Bookmarks')) {
+        const tweets = graphql_data?.bookmark_timeline_v2?.timeline?.instructions?.[0]?.entries?.filter((entry: any) => String(entry?.entryId).includes('tweet'))
+            .map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
+
+        console.debug('[MINUS-EGIRLS] Bookmarks Tweets: ', tweets);
         filterTweets(tweets);
     }
 }

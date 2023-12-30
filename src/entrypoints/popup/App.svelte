@@ -63,7 +63,7 @@
         </label>
 
         <div class="w-full">
-            <input type="range" min="0" max="100" value={strengthInPercent} class="range {isOn ? 'range-accent' : 'range-warning'}" step="50" on:click={setStrength} disabled={!isOn} />
+            <input type="range" min="0" max="100" value={strengthInPercent} class="range range-accent disabled:range-warning" step="50" on:click={setStrength} disabled={!isOn} />
             <div class="w-full flex justify-between text-xs px-2">
                 <span>Weak</span>
                 <span>Medium</span>

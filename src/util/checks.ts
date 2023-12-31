@@ -15,7 +15,13 @@ export async function filterTweets(tweets: Array<Tweet>) {
             tweetCheck = checkTextForKeyword(tweet.legacy.full_text, filterStrength);
         }
 
-        return urlCheck1 || urlCheck2 || descriptionCheck || tweetCheck;
+        let count = 0;
+        if (urlCheck1) count++;
+        if (urlCheck2) count++;
+        if (descriptionCheck) count++;
+        if (tweetCheck) count++;
+
+        return count >= 2;
     });
 
     console.log('[MINUS-EGIRLS] Tweets to filter: ', tweetsToFilter);
@@ -48,8 +54,8 @@ function checkProfileURL(urls: TweetEntityURL[] | undefined, strength: number) {
     if (!urls) return false;
 
     const urlToFilter = ['onlyfans.com', 'linkfly.to', 'beacons.ai', 'snipfeed.co', 'allmylinks.com', 'msha.ke'];
-    if (strength >= 1) {
-        urlToFilter.push('linktr.ee', 'linktree.com', 'fansly.com');
+    if (strength == 2) {
+        urlToFilter.push('fansly.com');
     }
 
     return urls.some(url => urlToFilter.some(filter => url.display_url.toLowerCase().indexOf(filter) > -1));

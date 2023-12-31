@@ -1,13 +1,13 @@
 import type { Tweet } from '@/@types/TwitterTypes';
 import { filterTweets } from '@/util/checks';
-import { getTweetsToHide, hideTweet, removeTweet } from '@/util/filter';
+import { getTweetsToHide, hideTweet } from '@/util/filter';
 import { ExtensionStorage } from '@/util/storage';
 
 export default defineContentScript({
     matches: ['*://*.twitter.com/*'],
     runAt: 'document_start',
     main(ctx) {
-        console.log('Hello content script!', { id: browser.runtime.id });
+        // console.log('Hello content script!', { id: browser.runtime.id });
         setTimeout(async () => {
             if (!(await ExtensionStorage.enabled.getValue())) return;
             injectXHRListener();
@@ -24,6 +24,7 @@ export interface EventData<T> {
 }
 
 function addMutationObserver() {
+    let lastAddedTweet: number = 0;
     const observer = new MutationObserver(async (mutations) => {
         let newTweetElements: HTMLElement[] = [];
         for (const mutation of mutations) {
@@ -38,6 +39,7 @@ function addMutationObserver() {
                         if (tweet?.getAttribute('data-testid') === 'tweet') {
                             // handleTweetElement(tweet as HTMLElement);
                             newTweetElements.push(tweet as HTMLElement);
+                            // console.debug('[MINUS-EGIRLS] Tweet detected:', lastAddedTweet);
                         }
                     }
                 }
@@ -45,13 +47,17 @@ function addMutationObserver() {
             }
         }
         if (newTweetElements.length === 0) return;
-        console.debug('[MINUS-EGIRLS] Mutation detected:', newTweetElements.length);
-        if (getTweetsToHide().length === 0) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+        // console.debug('[MINUS-EGIRLS] Mutation detected:', newTweetElements.length);
+        let timeout = 10;
+        if (Date.now() - lastAddedTweet > 2000) {
+            timeout = 2000;
         }
-        for (const tweetElement of newTweetElements) {
-            await handleTweetElement(tweetElement);
-        }
+        lastAddedTweet = Date.now();
+        setTimeout(async () => {
+            for (const tweetElement of newTweetElements) {
+                await handleTweetElement(tweetElement);
+            }
+        }, timeout);
     });
     observer.observe(document, { childList: true, subtree: true });
 }
@@ -72,7 +78,6 @@ async function handleTweetElement(tweetElement: HTMLElement) {
     const tweetUsername = Array.from(tweetElement.querySelectorAll('a[role="link"]'))?.[2]?.textContent; // with @ in front
     const tweetText = tweetElement.querySelector('div[data-testid="tweetText"]')?.textContent;
     const tweetFavoriteCount = convertFavCount(tweetElement);
-    // console.log('[MINUS-EGIRLS] Checking Tweet: ', tweetUsername, tweetText, tweetFavoriteCount);
 
     if (!tweetUsername) return;
 
@@ -86,7 +91,7 @@ async function handleTweetElement(tweetElement: HTMLElement) {
         const text = tweet.legacy.full_text; // contains more than just the tweet text, e.g. reply-mention and tweet url
 
         if (tweetUsername === `@${username}`) {
-            console.log('[MINUS-EGIRLS] Found Tweet: ', tweet);
+            // console.log('[MINUS-EGIRLS] Found Tweet: ', tweet);
             if (tweetText && text?.indexOf(tweetText) > -1) return true;
 
             const favoriteCount = tweet.legacy.favorite_count;
@@ -97,7 +102,6 @@ async function handleTweetElement(tweetElement: HTMLElement) {
     });
 
     if (foundTweet) {
-        removeTweet(foundTweet);
         hideTweet(tweetElement);
     }
 }
@@ -132,7 +136,9 @@ async function eventHandler(e: Event) {
         }
     } else if (eventData.url.includes('UserTweets')) {
         // console.log('[MINUS-EGIRLS] UserTweets', graphql_data);
-        const tweets = graphql_data?.user.result.timeline_v2.timeline.instructions[2].entries?.filter((entry: any) => String(entry?.entryId).startsWith('tweet'))?.map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
+        const tweets = graphql_data?.user.result.timeline_v2.timeline.instructions[2].entries
+            ?.filter((entry: any) => String(entry?.entryId).startsWith('tweet'))
+            ?.map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
 
         console.debug('[MINUS-EGIRLS] UserTweets Tweets: ', tweets);
         filterTweets(tweets);
@@ -145,7 +151,8 @@ async function eventHandler(e: Event) {
         console.debug('[MINUS-EGIRLS] HomeTimeline Tweets: ', tweets);
         filterTweets(tweets);
     } else if (eventData.url.includes('Bookmarks')) {
-        const tweets = graphql_data?.bookmark_timeline_v2?.timeline?.instructions?.[0]?.entries?.filter((entry: any) => String(entry?.entryId).includes('tweet'))
+        const tweets = graphql_data?.bookmark_timeline_v2?.timeline?.instructions?.[0]?.entries
+            ?.filter((entry: any) => String(entry?.entryId).includes('tweet'))
             .map((entry: any) => entry?.content?.itemContent?.tweet_results?.result) as Tweet[];
 
         console.debug('[MINUS-EGIRLS] Bookmarks Tweets: ', tweets);

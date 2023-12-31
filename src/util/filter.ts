@@ -3,19 +3,11 @@ import type { Tweet } from '@/@types/TwitterTypes';
 let tweetsToHide: Array<Tweet> = [];
 
 export function addTweetsToHide(tweets: Tweet[]) {
-    tweetsToHide = [];
     tweetsToHide.push(...tweets);
 }
 
 export function getTweetsToHide() {
     return tweetsToHide;
-}
-
-export function removeTweet(tweet: Tweet) {
-    const index = tweetsToHide.indexOf(tweet);
-    if (index > -1) {
-        tweetsToHide.splice(index, 1);
-    }
 }
 
 export async function hideTweet(tweetElement: HTMLElement, reason?: string) {

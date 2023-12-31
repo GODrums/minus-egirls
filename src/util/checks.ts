@@ -4,7 +4,6 @@ import { ExtensionStorage } from "./storage";
 
 export async function filterTweets(tweets: Array<Tweet>) {
     const filterStrength = await ExtensionStorage.filterStrength.getValue();
-    console.log('[MINUS-EGIRLS] Filter strength: ', filterStrength);
     const tweetsToFilter = tweets.filter(tweet => {
         const urlCheck1 = checkProfileURL(tweet.core?.user_results?.result?.legacy?.entities?.url?.urls, filterStrength);
         const urlCheck2 = checkProfileURL(tweet.core?.user_results?.result?.legacy?.entities?.description.urls, filterStrength);

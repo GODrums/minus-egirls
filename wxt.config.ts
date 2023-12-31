@@ -7,7 +7,6 @@ export default defineConfig({
   manifest: {
     name: 'Minus-Egirls',
     description: 'A browser extension that removes egirls from your Twitter feed.',
-    version: '0.0.9',
     host_permissions: ["*://*.twitter.com/*"],
     "permissions": ["storage"],
     web_accessible_resources: [{

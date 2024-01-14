@@ -3,6 +3,13 @@
 
 A browser extension that removes egirls from your Twitter feed. With multiple filter strength levels, you can choose how much you want to filter out. The idea was inspired by [egirl-blocker](https://github.com/theerfan/egirl-blocker).
 
+<p align="center">
+  <a href="https://chrome.google.com/webstore/detail/kfojcjglnibjphepfbcekpjnkjngpgmd">
+    <picture>
+      <source srcset="https://i.imgur.com/XBIE9pk.png" media="(prefers-color-scheme: dark)">
+      <img height="58" src="https://i.imgur.com/oGxig2F.png" alt="Chrome Web Store"></picture></a>
+</p>
+
 ## Tech Stack
 
 - [Web Extension Framework (WXT)](https://wxt.dev/) powered by [Vite](https://vitejs.dev/)

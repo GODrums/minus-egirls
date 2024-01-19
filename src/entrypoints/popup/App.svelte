@@ -31,10 +31,6 @@
         strength = event.target.value / 50;
         await ExtensionStorage.filterStrength.setValue(strength);
     };
-
-    function openLink(link: string) {
-        browser.tabs.create({ url: link });
-    }
 </script>
 
 <div class="container w-[320px] h-[350px] p-5">
